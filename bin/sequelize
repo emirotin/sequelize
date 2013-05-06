@@ -21,7 +21,7 @@ var writeConfig = function(config) {
 
   config = JSON.stringify(config, null, 2)
 
-  fs.writeFileSync(configFile, config)
+  fs.writeFileSync(configFile, "module.exports = " + config + ";")
 }
 
 var createMigrationsFolder = function(force) {
@@ -49,7 +49,7 @@ var createMigrationsFolder = function(force) {
 
 var readConfig = function() {
   try {
-    var config = JSON.parse(fs.readFileSync(configFile))
+    var config = require(configFile)
       , env    = process.env.NODE_ENV || 'development'
 
     if (config[env]) {
