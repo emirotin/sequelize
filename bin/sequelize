@@ -8,6 +8,7 @@ const path      = require("path")
     , _         = Sequelize.Utils._
 
 var configPath       = process.cwd() + '/config'
+  , environment      = process.env.NODE_ENV || 'development'
   , migrationsPath   = process.cwd() + '/migrations'
   , packageJsonPath  = __dirname + '/../package.json'
   , packageJson      = JSON.parse(fs.readFileSync(packageJsonPath).toString())
@@ -49,32 +50,44 @@ var createMigrationsFolder = function(force) {
 
 var readConfig = function() {
   try {
-    var config = require(configFile)
-      , env    = process.env.NODE_ENV || 'development'
-
-    if (config[env]) {
-      config = config[env]
-    }
-
-    return config
+  var config = require(configFile)
+    , env    = process.env.NODE_ENV || 'development'
   } catch(e) {
     throw new Error('The ' + configFileName + ' is not available or contains invalid JSON.')
   }
-}
+  if (config[environment]) {
+    config = config[environment]
+  }
+  return config
+};
 
 program
   .version(packageJson.version)
   .option('-i, --init', 'Initializes the project. Creates a config/' + configFileName)
   .option('-m, --migrate', 'Runs undone migrations')
+  .option('-e, --env <environment>', 'Specify the environment.')
+  .option('-m, --migrate', 'Run pending migrations.')
   .option('-u, --undo', 'Undo the last migration.')
   .option('-f, --force', 'Forces the action to be done.')
-  .option('-c, --create-migration [migration-name]', 'Create a new migration skeleton file.')
+  .option('-c, --create-migration [migration-name]', 'Creates a new migration.')
   .parse(process.argv)
+
+if(typeof program.env === 'string') {
+  environment = program.env
+}
+console.log("Using environment '" + environment + "'.")
 
 if(program.migrate) {
   if(configFileExists) {
-    var config = readConfig()
+    var config
       , options  = {}
+
+    try {
+      config = readConfig()
+    } catch(e) {
+      console.log(e.message)
+      process.exit(1)
+    }
 
     _.each(config, function(value, key) {
       if(['database', 'username', 'password'].indexOf(key) == -1) {
@@ -126,7 +139,6 @@ if(program.migrate) {
         host: '127.0.0.1'
       }
     })
-
     console.log('Successfully created ' + configFileName)
   } else {
     console.log('A ' + configFileName + ' already exists. Run "sequelize --init --force" to overwrite it.')
@@ -138,21 +150,23 @@ if(program.migrate) {
 
   var migrationName = [
     moment().format('YYYYMMDDHHmmss'),
-    (typeof program.createMigration == 'string') ? program.createMigration : 'unnamed-migration'
+    (typeof program.createMigration === 'string') ? program.createMigration : 'unnamed-migration'
   ].join('-') + '.js'
 
   var migrationContent = [
     "module.exports = {",
     "  up: function(migration, DataTypes, done) {",
     "    // add altering commands here, calling 'done' when finished",
+    "    done()",
     "  },",
     "  down: function(migration, DataTypes, done) {",
     "    // add reverting commands here, calling 'done' when finished",
+    "    done()",
     "  }",
     "}"
   ].join('\n')
 
   fs.writeFileSync(migrationsPath + '/' + migrationName, migrationContent)
 } else {
-  console.log('Please define any params!')
+  console.log('Try "sequelize --help" for usage information.')
 }
